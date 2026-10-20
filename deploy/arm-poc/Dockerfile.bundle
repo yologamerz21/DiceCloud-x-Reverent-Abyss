@@ -21,8 +21,11 @@ RUN useradd --create-home mt
 USER mt
 RUN curl -fsSL "https://install.meteor.com/?release=${METEOR_RELEASE}" | sh
 ENV PATH=/home/mt/.meteor:$PATH
-# The client build is memory hungry
-ENV TOOL_NODE_FLAGS=--max-old-space-size=4096
+# The client build is memory hungry; a heap near its cap makes Node spend most
+# of its time in garbage collection, which looks like a hang
+ENV TOOL_NODE_FLAGS=--max-old-space-size=6144
+# Print the slowest build steps when the build finishes
+ENV METEOR_PROFILE=10000
 
 # Install npm dependencies first so they cache between source changes
 WORKDIR /home/mt/app
@@ -30,7 +33,13 @@ COPY --chown=mt app/package.json app/package-lock.json ./
 RUN meteor npm ci
 
 COPY --chown=mt app/ ./
-RUN meteor build /home/mt/out --server-only --architecture os.linux.x86_64
+# meteor build prints nothing for long stretches, so log a heartbeat with free
+# memory each minute to tell a slow build from a stuck one
+RUN ( while sleep 60; do \
+        echo "[heartbeat] $(date +%T) MemAvailable: $(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo) MB"; \
+      done ) & \
+    meteor build /home/mt/out --server-only --architecture os.linux.x86_64; \
+    status=$?; kill $! 2>/dev/null; exit $status
 
 FROM scratch AS export
 COPY --from=build /home/mt/out/ /
