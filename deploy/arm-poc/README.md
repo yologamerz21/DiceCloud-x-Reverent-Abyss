@@ -121,4 +121,5 @@ docker compose down -v
 - **Node version:** it uses upstream Node 14.21.3. Meteor's own patched 14.21.4 is not published for arm64. Both are end-of-life.
 - **MongoDB:** it has no authentication. The port is never published, but add auth with a keyFile before players join.
 - **Uploads:** uploaded images and archived characters are stored inside the container and are lost on a rebuild. Don't archive characters you want to keep during the test.
+- **Browsers:** the bundle is built for modern browsers only (no `web.browser.legacy` client). Current Chrome, Edge, Firefox and Safari work. Browsers from before about 2017, such as Internet Explorer, are served the modern client and will likely fail.
 - **Network exposure:** it listens on 127.0.0.1 only. Public access (Caddy, ports 80/443, iptables) is a later step.

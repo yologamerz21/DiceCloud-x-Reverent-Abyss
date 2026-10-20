@@ -9,7 +9,8 @@ on:
 jobs:
   bundle:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # The first build took over 55 minutes in meteor build alone
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 
