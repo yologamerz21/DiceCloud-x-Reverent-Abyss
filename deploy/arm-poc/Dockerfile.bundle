@@ -34,11 +34,14 @@ RUN meteor npm ci
 
 COPY --chown=mt app/ ./
 # meteor build prints nothing for long stretches, so log a heartbeat with free
-# memory each minute to tell a slow build from a stuck one
+# memory each minute to tell a slow build from a stuck one.
+# --platforms web.browser skips the web.browser.legacy client (fully
+# transpiled for pre-2017 browsers), roughly halving the client build. Old
+# browsers are then served the modern client instead of a 404.
 RUN ( while sleep 60; do \
         echo "[heartbeat] $(date +%T) MemAvailable: $(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo) MB"; \
       done ) & \
-    meteor build /home/mt/out --server-only --architecture os.linux.x86_64; \
+    meteor build /home/mt/out --server-only --platforms web.browser --architecture os.linux.x86_64; \
     status=$?; kill $! 2>/dev/null; exit $status
 
 FROM scratch AS export
