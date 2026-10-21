@@ -40,11 +40,6 @@
         :value="value.skillVariableName"
         @change="change('skillVariableName', ...arguments)"
       />
-      <text-field
-        label="DC"
-        :value="value.dc"
-        @change="change('dc', ...arguments)"
-      />
     </div>
   </div>
 </template>
@@ -75,14 +70,17 @@ export default {
     }
   },
   data() {
+    // Checks started from a skill or ability tile have no prop, only the
+    // creature making the check as their target
+    const creatureId = this.value.prop?.root?.id ?? this.value.targetIds?.[0];
     return {
       abilityOptions: createListOfProperties({
         attributeType: 'ability',
-        'root.id': this.value.prop.root.id,
+        'root.id': creatureId,
       }, true),
       skillOptions: createListOfProperties({
         type: 'skill',
-        'root.id': this.value.prop.root.id,
+        'root.id': creatureId,
       }, true),
     };
   },
