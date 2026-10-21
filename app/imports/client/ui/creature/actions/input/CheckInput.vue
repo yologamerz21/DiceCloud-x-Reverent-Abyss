@@ -40,11 +40,6 @@
         :value="value.skillVariableName"
         @change="change('skillVariableName', ...arguments)"
       />
-      <text-field
-        label="DC"
-        :value="value.dc"
-        @change="change('dc', ...arguments)"
-      />
     </div>
   </div>
 </template>
@@ -95,11 +90,6 @@ export default {
       this.$emit('input', newValue)
     },
     change(key, value, ack) {
-      // The DC field gives a string, store a number or null for no DC
-      if (key === 'dc') {
-        const dc = value === '' || value === null || value === undefined ? NaN : Number(value);
-        value = Number.isFinite(dc) ? dc : null;
-      }
       const newValue = { ...this.value, [key]: value };
       this.$emit('input', newValue);
       ack();
