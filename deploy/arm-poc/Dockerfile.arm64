@@ -26,6 +26,14 @@ RUN set -eu; \
   rm "$file" SHASUMS256.txt; \
   node --version
 
+# Node 14's bundled npm 6 ships node-gyp 5, whose gyp opens files with mode
+# 'rU'. Python 3.11 (Debian 12) removed that mode, so every native build fails
+# with "ValueError: invalid mode: 'rU'". node-gyp 9 still supports Node 14 and
+# Python 3.11. npm 6's build wrapper and node-pre-gyp both use the node-gyp
+# named by npm_config_node_gyp.
+RUN npm install --global node-gyp@9.4.1 && node-gyp --version
+ENV npm_config_node_gyp=/usr/local/bin/node-gyp
+
 RUN useradd --create-home --uid 1000 dicecloud
 WORKDIR /opt/dicecloud
 COPY dist/app.tar.gz /tmp/app.tar.gz
