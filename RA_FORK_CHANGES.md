@@ -53,7 +53,7 @@ All new logic lives in these files, so upstream merges stay cheap.
 ### UI
 
 - `client/ui/creature/actions/input/AdvantageInput.vue`: uses `AdvantageStepper` instead of the toggle, and the extra-hex offset uses `Math.sign`.
-- `client/ui/creature/actions/input/CheckInput.vue`: uses `AdvantageStepper` instead of the toggle, and the extra-hex offset uses `Math.sign`.
+- `client/ui/creature/actions/input/CheckInput.vue`: uses `AdvantageStepper` instead of the toggle, and the extra-hex offset uses `Math.sign`. Also fixes an upstream bug: the Ability and Skill lists were built from `value.prop.root.id`, but checks started from a skill or ability tile have no `prop`, so both lists rendered blank and the ability couldn't be changed. They now use the checking creature (the task's target). The DC is stored as a number, or null when cleared.
 - `client/ui/properties/forms/EffectForm.vue`: advantage and disadvantage effects now accept an amount, and the help text is fixed.
 - `client/ui/properties/forms/SpellForm.vue`: the To Hit prefix reads `2d10 + `.
 
