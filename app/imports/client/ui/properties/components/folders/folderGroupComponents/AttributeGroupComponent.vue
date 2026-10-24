@@ -15,6 +15,12 @@
         @click="$emit('click')"
         @change="damageProperty"
       />
+      <mortality-health-bar
+        v-else-if="model.attributeType === 'mortalityHealth'"
+        :model="model"
+        @change="damageProperty"
+        @click="$emit('click')"
+      />
       <health-bar
         v-else-if="model.attributeType === 'healthBar'"
         :model="model"
@@ -57,6 +63,7 @@
 import AbilityListTile from '/imports/client/ui/properties/components/attributes/AbilityListTile.vue';
 import HitDiceListTile from '/imports/client/ui/properties/components/attributes/HitDiceListTile.vue';
 import HealthBar from '/imports/client/ui/properties/components/attributes/HealthBar.vue';
+import MortalityHealthBar from '/imports/client/ui/properties/components/attributes/MortalityHealthBar.vue';
 import SpellSlotListTile from '/imports/client/ui/properties/components/attributes/SpellSlotListTile.vue';
 import ResourceCardContent from '/imports/client/ui/properties/components/attributes/ResourceCardContent.vue';
 import AttributeCardContent from '/imports/client/ui/properties/components/attributes/AttributeCardContent.vue';
@@ -71,6 +78,7 @@ export default {
     AbilityListTile,
     HitDiceListTile,
     HealthBar,
+    MortalityHealthBar,
     SpellSlotListTile,
     ResourceCardContent,
     AttributeCardContent,

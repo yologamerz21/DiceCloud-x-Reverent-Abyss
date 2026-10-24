@@ -4,10 +4,18 @@
     class="stats-tab ma-2"
   >
     <div
-      v-if="properties.attribute.healthBar && properties.attribute.healthBar.length"
+      v-if="(properties.attribute.healthBar && properties.attribute.healthBar.length) ||
+        (properties.attribute.mortalityHealth && properties.attribute.mortalityHealth.length)"
       class="px-2 pt-2"
     >
       <v-card class="pa-2">
+        <mortality-health-bar
+          v-for="mortalityHealth in properties.attribute.mortalityHealth"
+          :key="mortalityHealth._id"
+          :model="mortalityHealth"
+          @change="({ type, value }) => incrementChange(mortalityHealth._id, { type, value })"
+          @click="clickProperty({_id: mortalityHealth._id})"
+        />
         <health-bar
           v-for="healthBar in properties.attribute.healthBar"
           :key="healthBar._id"
@@ -393,6 +401,7 @@
 import Creatures from '/imports/api/creature/creatures/Creatures';
 import softRemoveProperty from '/imports/api/creature/creatureProperties/methods/softRemoveProperty';
 import HealthBar from '/imports/client/ui/properties/components/attributes/HealthBar.vue';
+import MortalityHealthBar from '/imports/client/ui/properties/components/attributes/MortalityHealthBar.vue';
 import AttributeCard from '/imports/client/ui/properties/components/attributes/AttributeCard.vue';
 import AbilityListTile from '/imports/client/ui/properties/components/attributes/AbilityListTile.vue';
 import ColumnLayout from '/imports/client/ui/components/ColumnLayout.vue';
@@ -469,6 +478,7 @@ const propertyHandlers = {
 export default {
   components: {
     HealthBar,
+    MortalityHealthBar,
     RestButton,
     BuffListItem,
     AbilityListTile,

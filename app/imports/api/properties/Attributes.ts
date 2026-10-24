@@ -30,6 +30,7 @@ const AttributeSchema = createPropertySchema({
       'modifier', // Proficiency Bonus, displayed as +x
       'hitDice', // d12 hit dice
       'healthBar', // Hitpoints, Temporary Hitpoints
+      'mortalityHealth', // Reverent Abyss: HP capped by a Mortality attribute
       'resource', // Rages, sorcery points
       'spellSlot', // Level 1, 2, 3... spell slots
       'utility', // Aren't displayed, Jump height, Carry capacity
@@ -42,6 +43,15 @@ const AttributeSchema = createPropertySchema({
     type: String,
     allowedValues: ['d1', 'd2', 'd4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'] as const,
     optional: true,
+  },
+  // For type mortalityHealth, the variable name of the Mortality attribute that caps
+  // current HP. Defaults to 'mortality'
+  mortalityVariableName: {
+    type: String,
+    optional: true,
+    regEx: VARIABLE_NAME_REGEX,
+    min: 2,
+    max: STORAGE_LIMITS.variableName,
   },
   // For type spellSlot, the level needs to be stored separately
   spellSlotLevel: {

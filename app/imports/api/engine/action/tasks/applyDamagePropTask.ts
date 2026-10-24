@@ -7,6 +7,8 @@ import getPropertyTitle from '/imports/api/utility/getPropertyTitle';
 import { getSingleProperty } from '/imports/api/engine/loadCreatures';
 import numberToSignedString from '/imports/api/utility/numberToSignedString';
 import { lowerCase, upperFirst } from 'lodash';
+import { allowsNegativeValue } from '/imports/constants/RA_HEALTH';
+import { capToMortality, pullDownToMortality } from '/imports/api/engine/action/functions/mortalityHealth';
 
 export default async function applyDamagePropTask(
   task: DamagePropTask, action: EngineAction, result: TaskResult, userInput
@@ -82,6 +84,8 @@ export default async function applyDamagePropTask(
   targetProp = await getSingleProperty(targetId, targetPropId);
 
   if (!targetProp) return value;
+  // Reverent Abyss: healing can't take current HP above Mortality
+  value = capToMortality(action, targetId, targetProp, operation, value);
 
   if (operation === 'set') {
     const total = targetProp.total || 0;
@@ -89,7 +93,7 @@ export default async function applyDamagePropTask(
     // So we need the actual damage to get to that value
     damage = total - value;
     // Damage can't exceed total value
-    if (damage > total && !targetProp.ignoreLowerLimit) damage = total;
+    if (damage > total && !allowsNegativeValue(targetProp)) damage = total;
     // Damage must be positive
     if (damage < 0 && !targetProp.ignoreUpperLimit) damage = 0;
     newValue = targetProp.total - damage;
@@ -114,7 +118,7 @@ export default async function applyDamagePropTask(
     const currentDamage = targetProp.damage || 0;
     increment = value;
     // Can't increase damage above the remaining value
-    if (increment > currentValue && !targetProp.ignoreLowerLimit) increment = currentValue;
+    if (increment > currentValue && !allowsNegativeValue(targetProp)) increment = currentValue;
     // Can't decrease damage below zero
     if (-increment > currentDamage && !targetProp.ignoreUpperLimit) increment = -currentDamage;
     // Only increment if the increment is non-zero
@@ -140,6 +144,8 @@ export default async function applyDamagePropTask(
       if (targetId === action.creatureId) setScope(result, targetProp, newValue, damage);
     }
   }
+  // Reverent Abyss: losing Mortality pulls current HP down to match
+  if (newValue !== undefined) pullDownToMortality(action, result, targetId, targetProp);
   await applyTriggers(action, targetProp, [targetId], 'damageTriggerIds.after', userInput);
   await applyTriggers(action, targetProp, [targetId], 'damageTriggerIds.afterChildren', userInput);
   return increment;
