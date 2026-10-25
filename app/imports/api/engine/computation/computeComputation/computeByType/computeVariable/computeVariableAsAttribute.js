@@ -1,5 +1,6 @@
 import getAggregatorResult from './getAggregatorResult';
 import { abilityModifier } from '/imports/constants/RA_ABILITY';
+import { allowsNegativeValue } from '/imports/constants/RA_HEALTH';
 
 export default function computeVariableAsAttribute(computation, node, prop) {
   let result = getAggregatorResult(node) || 0;
@@ -8,7 +9,7 @@ export default function computeVariableAsAttribute(computation, node, prop) {
 
   // Apply damage in a way that respects the damage rules, modifying damage if need be
   // Bound the damage
-  if (!prop.ignoreLowerLimit && prop.damage > prop.total) {
+  if (!allowsNegativeValue(prop) && prop.damage > prop.total) {
     prop.damage = prop.total;
   }
   if (!prop.ignoreUpperLimit && prop.damage < 0) {

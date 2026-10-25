@@ -11,6 +11,7 @@ import { isFiniteNode } from '/imports/parser/parseTree/constant';
 import resolve from '/imports/parser/resolve';
 import toString from '/imports/parser/toString';
 import { getPropertiesOfType } from '/imports/api/engine/loadCreatures';
+import { isHealthBarType } from '/imports/constants/RA_HEALTH';
 import applyTask from '/imports/api/engine/action/tasks/applyTask';
 import InputProvider from '/imports/api/engine/action/functions/userInput/InputProvider';
 import getEffectivePropTags from '/imports/api/engine/computation/utility/getEffectivePropTags';
@@ -274,7 +275,7 @@ async function dealDamage(
 
   // Keep only the healthbars that can take damage/healing
   healthBars = healthBars.filter((bar) => {
-    if (bar.attributeType !== 'healthBar' || bar.inactive || bar.removed || bar.overridden) {
+    if (!isHealthBarType(bar.attributeType) || bar.inactive || bar.removed || bar.overridden) {
       return false;
     }
     if (damageType === 'healing' && bar.healthBarNoHealing) {
