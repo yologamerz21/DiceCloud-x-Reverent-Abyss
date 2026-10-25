@@ -10,8 +10,9 @@ Tier 1 (branch `ra/2d10-core`, based on upstream `develop` @ `88fc9c83`) replace
 - **Saves:** succeed when total ≥ DC. Saves now show the same advantage prompt as checks and attacks.
 
 - **Ability modifiers:** an ability score's modifier comes from the Reverent Abyss stat table, using the highest threshold it meets: 2–3 is −3, 7 is 0, 8 is +1, 9–10 is +2, up to 70+ at +15. Scores below 2 get −4. This replaces D&D's `floor((score − 10) / 2)`.
+- **Health with Mortality:** a new attribute type, **Mortality**, tracks current HP. Its base value is the True Maximum HP. It links by variable name (default `mortality`) to an ordinary attribute holding Mortality, which caps current HP: healing or setting HP stops at Mortality, losing Mortality below current HP pulls HP down to match (and it stays down), regaining Mortality never raises HP, and HP can go negative. Damage maths (mortality loss per blow, heavy blows), rests and death are left to libraries.
 
-Dice tunables live in `app/imports/constants/RA_DICE.ts`, and the stat table lives in `app/imports/constants/RA_ABILITY.ts`.
+Dice tunables live in `app/imports/constants/RA_DICE.ts`, the stat table lives in `app/imports/constants/RA_ABILITY.ts`, and the Mortality type's helpers live in `app/imports/constants/RA_HEALTH.ts`.
 
 ## New files
 
@@ -26,6 +27,10 @@ All new logic lives in these files, so upstream merges stay cheap.
 | `app/imports/api/engine/action/functions/rollCoreDice.test.ts` | Roller unit tests |
 | `app/imports/api/engine/action/tasks/applyCheckTask.test.ts` | Check task tests, the first for this file |
 | `app/imports/client/ui/creature/actions/input/AdvantageStepper.vue` | − / value / + / reset stepper for numeric advantage |
+| `app/imports/constants/RA_HEALTH.ts` | Mortality type name, default Mortality variable, `isHealthBarType` and `allowsNegativeValue` |
+| `app/imports/api/engine/action/functions/mortalityHealth.ts` | Mortality rules: `capToMortality`, `pullDownToMortality` and `getEffectiveAttributeValue` |
+| `app/imports/api/engine/action/functions/mortalityHealth.test.ts` | Tests for damage, negative HP, the healing and set caps, the pull-down, and changes earlier in the same action |
+| `app/imports/client/ui/properties/components/attributes/MortalityHealthBar.vue` | Sheet bar for the Mortality type: current / Mortality, with the unhealable part striped, and Mortality / True Maximum underneath |
 | `RA_FORK_CHANGES.md` | This file |
 
 ## Modified upstream files
@@ -36,19 +41,22 @@ All new logic lives in these files, so upstream merges stay cheap.
 - `api/engine/action/applyProperties/applySavingThrowProperty.ts`: asks `advantage()` for each save, then rolls with `rollCoreDice`.
 - `api/engine/action/tasks/applyCheckTask.ts`: rolls with `rollCoreDice` and pushes the `~check*` variables to scope, which resolves the upstream TODO.
 - `api/engine/action/functions/userInput/InputProvider.ts`: `Advantage` changed from `0 | 1 | -1` to `number`, and the doc comment updated.
+- `api/engine/action/tasks/applyDamagePropTask.ts`: calls `capToMortality` before a change is worked out and `pullDownToMortality` after it is recorded, and the two lower-limit checks use `allowsNegativeValue` so Mortality-type HP can go negative.
+- `api/engine/action/applyProperties/applyDamageProperty.ts`: damage and healing reach the Mortality type like health bars (`isHealthBarType`).
 
 ### Computation
 
 - `api/engine/computation/computeComputation/computeByType/computeVariable/aggregate/aggregateEffect.js`: advantage and disadvantage effects sum their amount instead of counting instances. A blank amount counts as 1.
 - `api/engine/computation/computeComputation/computeByType/computeCalculation.js`: the same summing for effects on calculations, such as attack rolls. `fail` still counts instances. The advantage and disadvantage totals are cleared before summing, because actions re-run this aggregation on an already computed calculation (`recalculateCalculation`), which used to count every effect twice.
 - `api/engine/computation/computeComputation/computeByType/computeVariable/computeVariableAsSkill.js`: stores net advantage, and the 5e passive ±5 advantage bonus is removed.
-- `api/engine/computation/computeComputation/computeByType/computeVariable/computeVariableAsAttribute.js`: stores net advantage instead of collapsing it to −1, 0 or 1, and ability modifiers come from `abilityModifier()` in `RA_ABILITY.ts`. That computed `modifier` field is the only place the modifier is calculated; the sheet, skills, checks, spell lists and `.modifier` calculations all read it.
+- `api/engine/computation/computeComputation/computeByType/computeVariable/computeVariableAsAttribute.js`: stores net advantage instead of collapsing it to −1, 0 or 1, the lower-limit check uses `allowsNegativeValue` so Mortality-type HP can stay negative, and ability modifiers come from `abilityModifier()` in `RA_ABILITY.ts`. That computed `modifier` field is the only place the modifier is calculated; the sheet, skills, checks, spell lists and `.modifier` calculations all read it.
 - `api/engine/computation/computeComputation/computeByType/computeVariable/computeImplicitVariable.js`: stores net advantage instead of collapsing it to −1, 0 or 1.
 
 ### Schemas
 
 - `api/properties/Attributes.ts`: removes `allowedValues: [-1, 0, 1]` from `advantage`. The field is still an integer.
 - `api/properties/Skills.ts`: removes `allowedValues: [-1, 0, 1]` from `advantage`. The field is still an integer.
+- `api/properties/Attributes.ts` (again): adds the `mortalityHealth` attribute type and the `mortalityVariableName` field.
 
 ### UI
 
@@ -56,6 +64,10 @@ All new logic lives in these files, so upstream merges stay cheap.
 - `client/ui/creature/actions/input/CheckInput.vue`: uses `AdvantageStepper` instead of the toggle, and the extra-hex offset uses `Math.sign`. Also fixes an upstream bug: the Ability and Skill lists were built from `value.prop.root.id`, but checks started from a skill or ability tile have no `prop`, so both lists rendered blank and the ability couldn't be changed. They now use the checking creature (the task's target). The DC field is removed, because Reverent Abyss checks don't use one; saving throws keep their DC.
 - `client/ui/properties/forms/EffectForm.vue`: advantage and disadvantage effects now accept an amount, and the help text is fixed.
 - `client/ui/properties/forms/SpellForm.vue`: the To Hit prefix reads `2d10 + `.
+- `client/ui/properties/forms/AttributeForm.vue`: "Mortality" in the Type list, the Mortality attribute field, and the Health Bar settings shown for the new type too.
+- `client/ui/creature/character/characterSheetTabs/StatsTab.vue`: Mortality-type bars shown in the health card, above the health bars.
+- `client/ui/properties/components/folders/folderGroupComponents/AttributeGroupComponent.vue`: Mortality-type bars shown inside folders.
+- `client/ui/properties/viewers/AttributeViewer.vue`: "Mortality" as the type's display name.
 
 ### Tests
 
@@ -99,6 +111,22 @@ Create an **Effect** property:
 
 Effects stack numerically. Advantage 2, advantage (blank) and disadvantage 1 on the same stat net **Advantage +2**, which rolls 4d10 and keeps the highest 2. Ability advantage still flows to skills based on that ability, but not to saves, as in upstream. Players can adjust the suggested value with the stepper when they roll.
 
+## Setting up Mortality health (for library authors)
+
+Create two attributes on the character:
+
+| Attribute | Settings |
+|---|---|
+| **Hit Points** | Type **Mortality**, variable e.g. `hitPoints`, **base value = True Maximum HP**. Leave **Reset** blank so rests don't refill it. Set **Mortality attribute** only if the Mortality stat isn't called `mortality`. |
+| **Mortality** | Any ordinary type (e.g. Resource), variable `mortality`, **base value `hitPoints.total`**. Leave **Reset** blank. |
+
+- **In calculations:** `hitPoints` is current HP, `hitPoints.total` the True Maximum, and `mortality` the current Mortality.
+- **Damage and healing:** Damage properties change current HP, like a health bar, and health bar options such as damage order still apply.
+- **Changing Mortality:** use an **Adjustment** on `mortality`. A positive amount loses Mortality, a negative amount regains it. For example, a trigger on Hit Points being damaged can run an Adjustment of `floor(~damage / 5)`.
+- **Use Adjustments, not Effects, to lower Mortality.** The pull-down rule runs when an Adjustment or damage changes Mortality; an Effect that lowers it isn't caught.
+- **The pull-down doesn't fire damage triggers.** When losing Mortality pulls HP down, that HP change is written directly, so it can't set off "on damaged" triggers and loop with Mortality loss.
+- **Rests and death:** neither is built in. Write rests as rest triggers or actions, and judge death at the table or in a library.
+
 ## Behaviour notes
 
 - **Log format:** all three rolls now use `2d10 [ 5, 6 ] + 3`. Checks previously printed an unspaced modifier (`+3`), and attacks printed `[10]` without inner spaces. When the roll has advantage, the log text is prefixed with `Advantage +N` or `Disadvantage −N`.
@@ -117,3 +145,4 @@ Effects stack numerically. Advantage 2, advantage (blank) and disadvantage 1 on 
 6. **`AdvantageInput.vue` and `CheckInput.vue`:** if upstream restyles these inputs, re-apply the `<advantage-stepper>` swap.
 7. **Tests:** upstream test expectations that contain `1d20 [...]` strings need converting. With the test roller, a normal roll is `2d10 [ 5, 6 ]`, or 11.
 8. **New d20 call sites:** search upstream diffs for `diceSize: 20`. Any new hardcoded d20 roll should go through `rollCoreDice`.
+9. **Health bar checks:** any new upstream code that checks `attributeType === 'healthBar'` or `ignoreLowerLimit` should use `isHealthBarType()` or `allowsNegativeValue()` from `RA_HEALTH.ts`, so the Mortality type keeps working. The two hooks in `applyDamagePropTask.ts` are the main conflict risk.

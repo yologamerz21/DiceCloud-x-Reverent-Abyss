@@ -166,6 +166,7 @@ import getPropertyTitle from '/imports/client/ui/properties/shared/getPropertyTi
         modifier: 'Modifier',
         hitDice: 'Hit dice',
         healthBar: 'Health bar',
+        mortalityHealth: 'Mortality',
         resource: 'Resource',
         spellSlot: 'Spell slot',
         utility: 'Utility',

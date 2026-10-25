@@ -54,6 +54,19 @@
           />
         </v-col>
         <v-col
+          v-if="model.attributeType === 'mortalityHealth'"
+          cols="12"
+        >
+          <text-field
+            label="Mortality attribute"
+            hint="Variable name of the attribute holding Mortality, which caps current HP. Defaults to mortality"
+            placeholder="mortality"
+            :value="model.mortalityVariableName"
+            :error-messages="errors.mortalityVariableName"
+            @change="change('mortalityVariableName', ...arguments)"
+          />
+        </v-col>
+        <v-col
           v-if="model.attributeType === 'spellSlot'"
           cols="12"
         >
@@ -77,7 +90,7 @@
     <form-sections type="attribute">
       <v-expand-transition>
         <form-section
-          v-if="model.attributeType === 'healthBar'"
+          v-if="isHealthBarType(model.attributeType)"
           name="Health Bar"
         >
           <div class="d-flex flex-column align-center mb-4">
@@ -304,6 +317,7 @@ import propertyFormMixin from '/imports/client/ui/properties/forms/shared/proper
 import ColorPicker from '/imports/client/ui/components/ColorPicker.vue';
 import ResetSelector from '/imports/client/ui/components/ResetSelector.vue';
 import OutlinedInput from '/imports/client/ui/properties/viewers/shared/OutlinedInput.vue';
+import { isHealthBarType } from '/imports/constants/RA_HEALTH';
 
 export default {
   components: {
@@ -339,6 +353,10 @@ export default {
           text: 'Health bar',
           value: 'healthBar',
         }, {
+          text: 'Mortality',
+          value: 'mortalityHealth',
+          help: 'Current HP capped by a Mortality attribute. The base value is the true maximum HP, and current HP can go negative',
+        }, {
           text: 'Resource',
           value: 'resource',
           help: 'Resources are attributes that are spent to fuel actions, like sorcery points or ki'
@@ -366,6 +384,9 @@ export default {
       data.attributeTypeHints[type.value] = type.help;
     });
     return data;
+  },
+  methods: {
+    isHealthBarType,
   },
   watch: {
     'model.attributeType': function (newVal, oldVal) {
