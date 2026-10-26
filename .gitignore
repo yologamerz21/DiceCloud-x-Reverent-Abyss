@@ -1,1 +1,9 @@
 build
+
+# RA: never commit SSH or cloud keys
+Oracle Key/
+*.key
+*.ppk
+*.pem
+id_rsa*
+id_ed25519*
