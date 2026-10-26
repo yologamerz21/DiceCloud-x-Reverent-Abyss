@@ -126,6 +126,9 @@ export default {
 <style lang="css" scoped>
 .ability-list-tile {
   background: inherit;
+  /* RA: Firefox splits this flex row inside ColumnLayout's CSS columns,
+     pushing the name below the button */
+  break-inside: avoid;
 }
 
 .ability-list-tile>>>.v-list__tile {
