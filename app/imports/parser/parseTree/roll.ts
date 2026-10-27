@@ -69,7 +69,9 @@ const rollNode: RollNodeFactory = {
       return errorResult('Dice size is not an integer', node, context);
     }
     let number = left.value;
-    if (context.options.doubleRolls) {
+    // RA crit: roll double the dice, then keep the original count, highest first
+    const critKeepHighest = !!context.options.critKeepHighest;
+    if (context.options.doubleRolls || critKeepHighest) {
       number *= 2;
     }
     if (number > STORAGE_LIMITS.diceRollValuesCount) {
@@ -81,12 +83,20 @@ const rollNode: RollNodeFactory = {
     if (context) {
       context.rolls.push({ number, diceSize, values });
     }
+    const result = rollArray.create({
+      values,
+      diceSize,
+      diceNum: left.value,
+    });
+    if (critKeepHighest) {
+      // Drop the lowest half, the same way dropLowest marks dice
+      const sorted = [...result.values].sort((a, b) => a.value - b.value);
+      for (let i = 0; i < number - left.value; i += 1) {
+        sorted[i].disabled = true;
+      }
+    }
     return {
-      result: rollArray.create({
-        values,
-        diceSize,
-        diceNum: left.value,
-      }),
+      result,
       context
     };
   },
