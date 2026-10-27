@@ -7,7 +7,8 @@ import { getEffectiveActionScope } from '/imports/api/engine/action/functions/ge
 import recalculateCalculation from '/imports/api/engine/action/functions/recalculateCalculation';
 import { PropTask } from '/imports/api/engine/action/tasks/Task';
 import TaskResult from '/imports/api/engine/action/tasks/TaskResult';
-import { isFiniteNode } from '/imports/parser/parseTree/constant';
+import constant, { isFiniteNode } from '/imports/parser/parseTree/constant';
+import map from '/imports/parser/map';
 import resolve from '/imports/parser/resolve';
 import toString from '/imports/parser/toString';
 import { getPropertiesOfType } from '/imports/api/engine/loadCreatures';
@@ -41,9 +42,9 @@ export default async function applyDamageProperty(
   // Determine if the hit is critical
   const criticalHit = await getConstantValueFromScope('~criticalHit', scope)
     && prop.damageType !== 'healing'; // Can't critically heal
-  // Double the damage rolls if the hit is critical
+  // RA crit: roll double the dice and keep the original count, highest first
   const context = new Context({
-    options: { doubleRolls: criticalHit },
+    options: { critKeepHighest: criticalHit },
   });
 
   // Gather all the lines we need to log into an array
@@ -53,8 +54,23 @@ export default async function applyDamageProperty(
   // roll the dice only and store that string
   await recalculateCalculation(prop.amount, action, 'compile', inputProvider);
   const { result: rolled } = await resolve('roll', prop.amount.valueNode, scope, context, inputProvider);
-  if (rolled.parseType !== 'constant') {
-    logValue.push(toString(rolled));
+  // RA crit: the flat (non-dice) part of the formula is doubled. Find it by
+  // resolving the rolled formula again with every dice result counted as 0
+  let critFlat: number | undefined;
+  if (criticalHit) {
+    const diceAsZero = await map(EJSON.clone(rolled), async node =>
+      node.parseType === 'rollArray' ? constant.create({ value: 0 }) : node
+    );
+    const { result: flat } = await resolve('reduce', diceAsZero, scope, new Context(), inputProvider);
+    if (flat.parseType === 'constant' && typeof flat.value === 'number') {
+      critFlat = flat.value;
+    }
+  }
+  if (rolled.parseType !== 'constant' || critFlat !== undefined) {
+    logValue.push(toString(rolled) + (critFlat !== undefined
+      ? ` (flat ${critFlat} ×2 → ${critFlat * 2})`
+      : ''
+    ));
   }
   result.appendParserContextErrors(context, damageTargets);
 
@@ -62,8 +78,13 @@ export default async function applyDamageProperty(
   context.errors = [];
 
   // Resolve the roll to a final value
-  const { result: reduced } = await resolve('reduce', rolled, scope, context, inputProvider);
+  const { result: resolved } = await resolve('reduce', rolled, scope, context, inputProvider);
   result.appendParserContextErrors(context, damageTargets);
+  // Add the flat part a second time to double it
+  const reduced = critFlat !== undefined && resolved.parseType === 'constant'
+    && typeof resolved.value === 'number'
+    ? constant.create({ value: resolved.value + critFlat })
+    : resolved;
 
   // Store the result
   let damage: number | undefined = undefined;

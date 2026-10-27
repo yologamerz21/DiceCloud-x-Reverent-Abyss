@@ -7,6 +7,7 @@ Tier 1 (branch `ra/2d10-core`, based on upstream `develop` @ `88fc9c83`) replace
 - **Core roll:** attacks, checks and saving throws roll 2d10 + modifier.
 - **Advantage:** advantage +N and disadvantage −N cancel numerically. A net N ≠ 0 rolls `2 + |N|` d10 and keeps the 2 highest (N > 0) or the 2 lowest (N < 0). Net advantage is clamped to ±10.
 - **Crits (attacks only):** a crit is a kept sum ≥ `20 − critChance`. There are no critical misses.
+- **Crit damage:** on a crit, each dice term in a Damage property rolls double the dice and keeps the original count, highest first (`2d6` rolls 4d6 and keeps the 2 highest), and the flat (non-dice) part of the formula is doubled. The flat part is the formula's total with every die counted as 0, so stat modifiers like `wm.modifier` and flat-only damage double too. The log shows the dropped dice struck through and the flat part, e.g. `1d8 [~~4~~, 6] + 6 (flat 6 ×2 → 12)`. Healing never crits. This replaces DiceCloud's 5e rule of doubling the dice.
 - **Saves:** succeed when total ≥ DC. Saves now show the same advantage prompt as checks and attacks.
 
 - **Ability modifiers:** an ability score's modifier comes from the Reverent Abyss stat table, using the highest threshold it meets: 2–3 is −3, 7 is 0, 8 is +1, 9–10 is +2, up to 70+ at +15. Scores below 2 get −4. This replaces D&D's `floor((score − 10) / 2)`.
@@ -42,7 +43,11 @@ All new logic lives in these files, so upstream merges stay cheap.
 - `api/engine/action/tasks/applyCheckTask.ts`: rolls with `rollCoreDice` and pushes the `~check*` variables to scope, which resolves the upstream TODO.
 - `api/engine/action/functions/userInput/InputProvider.ts`: `Advantage` changed from `0 | 1 | -1` to `number`, and the doc comment updated.
 - `api/engine/action/tasks/applyDamagePropTask.ts`: calls `capToMortality` before a change is worked out and `pullDownToMortality` after it is recorded, and the two lower-limit checks use `allowsNegativeValue` so Mortality-type HP can go negative.
-- `api/engine/action/applyProperties/applyDamageProperty.ts`: damage and healing reach the Mortality type like health bars (`isHealthBarType`).
+- `api/engine/action/applyProperties/applyDamageProperty.ts`: damage and healing reach the Mortality type like health bars (`isHealthBarType`). On a crit it sets the parser's `critKeepHighest` option instead of `doubleRolls`, works out the flat part by resolving the rolled formula with every dice result as 0, adds it to the total a second time, and logs it.
+
+### Parser
+
+- `parser/parseTree/roll.ts`: new `critKeepHighest` context option. It rolls double the dice and marks the lowest half as dropped, like `dropLowest`. Upstream's `doubleRolls` option still works but nothing sets it.
 
 ### Computation
 
@@ -76,7 +81,7 @@ All new logic lives in these files, so upstream merges stay cheap.
 - `api/engine/action/applyProperties/applyActionProperty.test.ts`: expectations updated to 2d10, plus new crit and stacked-advantage tests.
 - `api/engine/action/applyProperties/applySavingThrowProperty.test.ts`: expectations updated to 2d10 (the DC is now 14), plus new advantage tests.
 - `api/engine/action/applyProperties/applyBranchProperty.test.ts`: expectations updated to 2d10. The miss fixture's attack bonus changed from −1 to −2 so it still misses.
-- `api/engine/action/applyProperties/applyDamageProperty.test.ts`: the crit attack line now reads 2d10.
+- `api/engine/action/applyProperties/applyDamageProperty.test.ts`: the crit attack line now reads 2d10. The 5e "doubles damage on a critical hit" test is replaced by RA crit damage tests: highest dice kept, original dice count, a doubled stat modifier, flat-only damage, a negative flat part, and healing that doesn't crit.
 - `api/engine/computation/computeComputation/tstFns/computeSkills.testFn.js`: new tests for stacked advantage and for no passive bonus from advantage. Skill values updated for RA modifiers.
 - `api/engine/computation/computeComputation/tstFns/computeAttribute.testFn.js`: expected modifiers updated for the RA table (12 → +3, 15 → +4, 21 → +6).
 - `api/engine/computation/computeComputation/tstFns/computeProficiencies.testFn.js`: expected modifier updated for the RA table (8 → +1).
@@ -147,3 +152,4 @@ Create two attributes on the character:
 7. **Tests:** upstream test expectations that contain `1d20 [...]` strings need converting. With the test roller, a normal roll is `2d10 [ 5, 6 ]`, or 11.
 8. **New d20 call sites:** search upstream diffs for `diceSize: 20`. Any new hardcoded d20 roll should go through `rollCoreDice`.
 9. **Health bar checks:** any new upstream code that checks `attributeType === 'healthBar'` or `ignoreLowerLimit` should use `isHealthBarType()` or `allowsNegativeValue()` from `RA_HEALTH.ts`, so the Mortality type keeps working. The two hooks in `applyDamagePropTask.ts` are the main conflict risk.
+10. **Crit damage** in `applyDamageProperty.ts` (the `critKeepHighest` context and the `critFlat` block) and `roll.ts` (the `critKeepHighest` branch). If upstream changes how damage is rolled or logged, keep the RA crit steps.

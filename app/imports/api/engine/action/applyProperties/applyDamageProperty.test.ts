@@ -244,49 +244,81 @@ describe('Apply Damage Properties', function () {
     }]);
   });
 
-  it('Doubles damage on a critical hit', async function () {
-    const [
-      creatureId, damageId, actionId
-    ] = getRandomIds(3);
-    const testCreature: TestCreature = {
+  // RA crit damage: each dice term rolls double the dice and keeps the original
+  // count, highest first, and the flat (non-dice) part of the formula is doubled.
+  // The test roller rolls ascending values, so a 2d8 crit rolls [4, 5]
+  async function critDamage(amount: string, extraProps: TestCreature['props'] = [], damageType = 'slashing') {
+    const [creatureId, damageId, actionId] = getRandomIds(3);
+    await createTestCreature({
       _id: creatureId,
       props: [
+        ...extraProps,
         {
           _id: actionId,
           type: 'action',
           attackRoll: { calculation: '10' },
-          children: [
-            {
-              _id: damageId,
-              type: 'damage',
-              target: 'target',
-              amount: { calculation: '2d6 + 7' }
-            },
-          ]
+          children: [{
+            _id: damageId,
+            type: 'damage',
+            target: 'target',
+            damageType,
+            amount: { calculation: amount },
+          }],
         },
       ],
-    };
-    await createTestCreature(testCreature);
-
+    });
     const action = await runActionById(actionId, [], critInputProvider);
     assert.exists(action);
-    assert.deepEqual(allMutations(action), [{
-      'contents': [{ 'name': 'Action' }],
-      'targetIds': []
-    }, {
-      'contents': [{
-        'inline': true,
-        'name': 'Critical Hit!',
-        'value': '2d10 [ 10, 10 ] + 10\n**30**'
-      }],
-      'targetIds': [],
-    }, {
-      'contents': [{
-        'inline': true,
-        'name': 'Damage',
-        'value': '2d6 [3, 4, 5, 6] + 7\n**25** critical slashing damage',
-      }],
-      'targetIds': [],
+    const mutations = allMutations(action);
+    assert.equal(mutations[1].contents[0].name, 'Critical Hit!');
+    return mutations[2].contents[0].value;
+  }
+
+  it('Keeps the highest dice and doubles the flat part on a critical hit', async function () {
+    assert.equal(
+      await critDamage('2d6 + 7'),
+      '2d6 [~~3~~, ~~4~~, 5, 6] + 7 (flat 7 ×2 → 14)\n**25** critical slashing damage'
+    );
+  });
+
+  it('Keeps the original number of dice on a critical hit', async function () {
+    assert.equal(
+      await critDamage('1d8 + 2'),
+      '1d8 [~~4~~, 5] + 2 (flat 2 ×2 → 4)\n**9** critical slashing damage'
+    );
+  });
+
+  it('Doubles stat modifiers in the damage on a critical hit', async function () {
+    const value = await critDamage('1d8 + wm.modifier', [{
+      _id: getRandomIds(1)[0],
+      type: 'attribute',
+      name: 'Weapon Mastery',
+      attributeType: 'ability',
+      variableName: 'wm',
+      baseValue: { calculation: '15' },
     }]);
+    // wm 15 has an RA modifier of +4
+    assert.equal(value, '1d8 [~~4~~, 5] + 4 (flat 4 ×2 → 8)\n**13** critical slashing damage');
+  });
+
+  it('Doubles flat-only damage on a critical hit', async function () {
+    assert.equal(
+      await critDamage('5'),
+      '5 (flat 5 ×2 → 10)\n**10** critical slashing damage'
+    );
+  });
+
+  it('Doubles a negative flat part on a critical hit', async function () {
+    assert.equal(
+      await critDamage('1d8 - 1'),
+      '1d8 [~~4~~, 5] - 1 (flat -1 ×2 → -2)\n**3** critical slashing damage'
+    );
+  });
+
+  it('Does not crit healing', async function () {
+    assert.equal(
+      await critDamage('1d8 + 2', [], 'healing'),
+      '1d8 [4] + 2\n**6** healing'
+    );
   });
 });
