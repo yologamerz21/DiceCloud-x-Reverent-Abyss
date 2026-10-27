@@ -68,6 +68,7 @@ All new logic lives in these files, so upstream merges stay cheap.
 - `client/ui/creature/character/characterSheetTabs/StatsTab.vue`: Mortality-type bars shown in the health card, above the health bars.
 - `client/ui/properties/components/folders/folderGroupComponents/AttributeGroupComponent.vue`: Mortality-type bars shown inside folders.
 - `client/ui/properties/viewers/AttributeViewer.vue`: "Mortality" as the type's display name.
+- `client/ui/properties/components/attributes/AbilityListTile.vue`: adds `break-inside: avoid` to the tile. Fixes an upstream Firefox bug: on wide windows Firefox split the tile's flex row inside the Stats tab's CSS columns, so the name dropped below the score button and the card grew taller.
 
 ### Tests
 
