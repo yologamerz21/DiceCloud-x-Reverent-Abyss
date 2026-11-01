@@ -8,14 +8,22 @@
     @click="rest"
   >
     <v-icon left>
-      {{ type === 'shortRest' ? 'mdi-music-rest-quarter' : 'mdi-bed' }}
+      {{ buttons[type].icon }}
     </v-icon>
-    {{ type === 'shortRest' ? 'Short Rest' : 'Long Rest' }}
+    {{ buttons[type].text }}
   </v-btn>
 </template>
 
 <script lang="js">
 import doAction from '/imports/client/ui/creature/actions/doAction';
+
+// RA: the turn buttons reuse the rest button, firing turnStart and turnEnd
+const buttons = {
+  shortRest: { text: 'Short Rest', icon: 'mdi-music-rest-quarter' },
+  longRest: { text: 'Long Rest', icon: 'mdi-bed' },
+  turnStart: { text: 'Start Turn', icon: 'mdi-play-circle-outline' },
+  turnEnd: { text: 'End Turn', icon: 'mdi-stop-circle-outline' },
+};
 
 export default {
   inject: {
@@ -33,6 +41,7 @@ export default {
   },
   data(){return {
     loading: false,
+    buttons,
   }},
   methods: {
     rest(){

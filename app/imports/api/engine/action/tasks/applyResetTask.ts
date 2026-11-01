@@ -17,21 +17,16 @@ export default async function applyResetTask(
     throw new Meteor.Error('wrong-number-of-targets', `Must reset the properties of a single creature at a time, ${task.targetIds.length} targets were provided`)
   }
 
-  // Print a title for rest events
-  switch (task.eventName) {
-    case 'shortRest':
-      result.appendLog({
-        name: 'Short Rest',
-        silenced: task.silent ?? false,
-      }, task.targetIds);
-      break;
-    case 'longRest':
-      result.appendLog({
-        name: 'Long Rest',
-        silenced: task.silent ?? false,
-      }, task.targetIds);
-      break;
+  // Print a title for rest and turn events
+  const title = eventTitles[task.eventName];
+  if (title) {
+    result.appendLog({
+      name: title,
+      silenced: task.silent ?? false,
+    }, task.targetIds);
   }
+
+  await applyEventTriggers(task, action, 'before', userInput);
 
   // Reset the properties by this event name
   await resetProperties(task, action, result, userInput);
@@ -39,6 +34,44 @@ export default async function applyResetTask(
   // Reset hit dice on a long rest, starting with the highest dice
   if (task.eventName === 'longRest') {
     await resetHitDice(task, action, result, userInput);
+  }
+
+  await applyEventTriggers(task, action, 'after', userInput);
+  await applyEventTriggers(task, action, 'afterChildren', userInput);
+}
+
+const eventTitles = {
+  shortRest: 'Short Rest',
+  longRest: 'Long Rest',
+  // RA: universal turn buttons
+  turnStart: 'Turn Start',
+  turnEnd: 'Turn End',
+};
+
+// The trigger events that fire for each reset event
+const triggerEventsByResetEvent = {
+  shortRest: ['anyRest', 'shortRest'],
+  longRest: ['anyRest', 'longRest'],
+  turnStart: ['turnStart'],
+  turnEnd: ['turnEnd'],
+};
+
+/**
+ * RA: Fire the creature's rest and turn triggers. The new action engine dropped
+ * these when it replaced the old rest method, so they never fired upstream.
+ */
+async function applyEventTriggers(
+  task: ResetTask, action: EngineAction, timing: 'before' | 'after' | 'afterChildren', userInput: InputProvider
+) {
+  const triggerEvents = triggerEventsByResetEvent[task.eventName];
+  if (!triggerEvents) return;
+  const triggers = getPropertiesOfType(task.targetIds[0], 'trigger').filter(trigger =>
+    !trigger.inactive
+    && trigger.timing === timing
+    && triggerEvents.includes(trigger.event)
+  );
+  for (const trigger of triggers) {
+    await applyTask(action, { prop: trigger, targetIds: task.targetIds }, userInput);
   }
 }
 
@@ -110,6 +143,12 @@ export async function resetProperties(task: ResetTask, action: EngineAction, res
   }
 
   const actionProps = getPropertiesByFilter(creatureId, actionFilterFunction, actionFilter);
+
+  // RA: log after any before triggers, not with the event title
+  if (actionProps.length) {
+    result = new TaskResult(task.targetIds);
+    action.results.push(result);
+  }
 
   for (const prop of actionProps) {
     result.mutations.push({

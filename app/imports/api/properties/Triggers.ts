@@ -15,6 +15,9 @@ const eventOptions = {
   anyRest: 'Short or long rest',
   longRest: 'Long rest',
   shortRest: 'Short rest',
+  // RA: fired by the universal turn buttons
+  turnStart: 'Turn start',
+  turnEnd: 'Turn end',
 }
 
 const timingOptions = {

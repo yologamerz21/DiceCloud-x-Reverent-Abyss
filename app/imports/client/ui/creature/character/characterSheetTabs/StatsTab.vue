@@ -53,6 +53,18 @@
               type="longRest"
               class="ma-1"
             />
+            <rest-button
+              v-if="!creature.settings.hideRestButtons"
+              :creature-id="creatureId"
+              type="turnStart"
+              class="ma-1"
+            />
+            <rest-button
+              v-if="!creature.settings.hideRestButtons"
+              :creature-id="creatureId"
+              type="turnEnd"
+              class="ma-1"
+            />
             <event-button
               v-for="event in properties.event"
               :key="event._id"
