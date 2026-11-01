@@ -75,6 +75,10 @@ All new logic lives in these files, so upstream merges stay cheap.
 - `client/ui/properties/viewers/AttributeViewer.vue`: "Mortality" as the type's display name.
 - `client/ui/properties/components/attributes/AbilityListTile.vue`: adds `break-inside: avoid` to the tile. Fixes an upstream Firefox bug: on wide windows Firefox split the tile's flex row inside the Stats tab's CSS columns, so the name dropped below the score button and the card grew taller.
 
+### Docs
+
+- `private/docs/defaultDocs.json`: the Actions, Spells, Damage, Effects, Attributes, Saving throws, Spell lists and Computed fields pages describe the RA rules instead of 5e ones, and a new **Reverent Abyss** section (`/docs/reverent-abyss`) adds Rules in DiceCloud, Building a Class and Quick Reference pages for class authors. The app only copies this file into the `docs` collection when that collection is empty, so a server that already has docs needs them cleared, or edited in the app by a `docsWriter`, to show the changes.
+
 ### Tests
 
 - `api/engine/action/functions/userInput/inputProviderForTests.testFn.ts`: `critInputProvider` rolls two 10s on the 2d10 core roll.
@@ -153,3 +157,4 @@ Create two attributes on the character:
 8. **New d20 call sites:** search upstream diffs for `diceSize: 20`. Any new hardcoded d20 roll should go through `rollCoreDice`.
 9. **Health bar checks:** any new upstream code that checks `attributeType === 'healthBar'` or `ignoreLowerLimit` should use `isHealthBarType()` or `allowsNegativeValue()` from `RA_HEALTH.ts`, so the Mortality type keeps working. The two hooks in `applyDamagePropTask.ts` are the main conflict risk.
 10. **Crit damage** in `applyDamageProperty.ts` (the `critKeepHighest` context and the `critFlat` block) and `roll.ts` (the `critKeepHighest` branch). If upstream changes how damage is rolled or logged, keep the RA crit steps.
+11. **Docs:** upstream edits to `defaultDocs.json` will conflict on the pages listed under Docs. Keep the RA wording for rolls, crits, advantage, ability modifiers and Mortality.
