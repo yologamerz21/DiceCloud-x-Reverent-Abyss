@@ -139,7 +139,9 @@ export default {
     showTags() {
       return this.model.event !== 'shortRest' &&
         this.model.event !== 'longRest' &&
-        this.model.event !== 'anyRest';
+        this.model.event !== 'anyRest' &&
+        this.model.event !== 'turnStart' &&
+        this.model.event !== 'turnEnd';
     }
   },
   methods: {

@@ -12,6 +12,8 @@ Tier 1 (branch `ra/2d10-core`, based on upstream `develop` @ `88fc9c83`) replace
 
 - **Ability modifiers:** an ability score's modifier comes from the Reverent Abyss stat table, using the highest threshold it meets: 2–3 is −3, 7 is 0, 8 is +1, 9–10 is +2, up to 70+ at +15. Scores below 2 get −4. This replaces D&D's `floor((score − 10) / 2)`.
 - **Health with Mortality:** a new attribute type, **Mortality**, tracks current HP. Its base value is the True Maximum HP. It links by variable name (default `mortality`) to an ordinary attribute holding Mortality, which caps current HP: healing or setting HP stops at Mortality, losing Mortality below current HP pulls HP down to match (and it stays down), regaining Mortality never raises HP, and HP can go negative. Damage maths (mortality loss per blow, heavy blows), rests and death are left to libraries.
+- **Turn buttons:** every sheet has Start Turn and End Turn buttons beside the rest buttons, hidden by the same setting. They have no rules of their own: they reset properties whose Reset is Turn start or Turn end, and fire triggers on the new Turn start and Turn end events, so libraries can refill action points and charge start-of-turn costs. Rests don't reset turn properties, and turns don't reset rest properties.
+- **Rest triggers (upstream bug):** triggers on Short rest, Long rest and Short or long rest never fired. The old rest method fired them, but upstream's new action engine (`c5f6ce81`, May 2024) dropped it and never wired them back up; the trigger form and docs still offered them. They fire again, and turn triggers use the same code. Before triggers fire before anything resets, and After and After Children triggers fire after.
 
 Dice tunables live in `app/imports/constants/RA_DICE.ts`, the stat table lives in `app/imports/constants/RA_ABILITY.ts`, and the Mortality type's helpers live in `app/imports/constants/RA_HEALTH.ts`.
 
@@ -32,6 +34,7 @@ All new logic lives in these files, so upstream merges stay cheap.
 | `app/imports/api/engine/action/functions/mortalityHealth.ts` | Mortality rules: `capToMortality`, `pullDownToMortality` and `getEffectiveAttributeValue` |
 | `app/imports/api/engine/action/functions/mortalityHealth.test.ts` | Tests for damage, negative HP, the healing and set caps, the pull-down, and changes earlier in the same action |
 | `app/imports/client/ui/properties/components/attributes/MortalityHealthBar.vue` | Sheet bar for the Mortality type: current / Mortality, with the unhealable part striped, and Mortality / True Maximum underneath |
+| `app/imports/api/engine/action/tasks/applyResetTask.test.ts` | Rest and turn tests: which triggers fire, their order around the reset, what each event resets, and disabled triggers |
 | `RA_FORK_CHANGES.md` | This file |
 
 ## Modified upstream files
@@ -44,6 +47,7 @@ All new logic lives in these files, so upstream merges stay cheap.
 - `api/engine/action/functions/userInput/InputProvider.ts`: `Advantage` changed from `0 | 1 | -1` to `number`, and the doc comment updated.
 - `api/engine/action/tasks/applyDamagePropTask.ts`: calls `capToMortality` before a change is worked out and `pullDownToMortality` after it is recorded, and the two lower-limit checks use `allowsNegativeValue` so Mortality-type HP can go negative.
 - `api/engine/action/applyProperties/applyDamageProperty.ts`: damage and healing reach the Mortality type like health bars (`isHealthBarType`). On a crit it sets the parser's `critKeepHighest` option instead of `doubleRolls`, works out the flat part by resolving the rolled formula with every dice result as 0, adds it to the total a second time, and logs it.
+- `api/engine/action/tasks/applyResetTask.ts`: titles for Turn Start and Turn End, and `applyEventTriggers` fires the creature's rest and turn triggers before and after the reset. Restored action uses are logged in their own result, so they show after the before triggers instead of next to the title.
 
 ### Parser
 
@@ -62,6 +66,7 @@ All new logic lives in these files, so upstream merges stay cheap.
 - `api/properties/Attributes.ts`: removes `allowedValues: [-1, 0, 1]` from `advantage`. The field is still an integer.
 - `api/properties/Skills.ts`: removes `allowedValues: [-1, 0, 1]` from `advantage`. The field is still an integer.
 - `api/properties/Attributes.ts` (again): adds the `mortalityHealth` attribute type and the `mortalityVariableName` field.
+- `api/properties/Triggers.ts`: adds the `turnStart` and `turnEnd` events.
 
 ### UI
 
@@ -74,10 +79,15 @@ All new logic lives in these files, so upstream merges stay cheap.
 - `client/ui/properties/components/folders/folderGroupComponents/AttributeGroupComponent.vue`: Mortality-type bars shown inside folders.
 - `client/ui/properties/viewers/AttributeViewer.vue`: "Mortality" as the type's display name.
 - `client/ui/properties/components/attributes/AbilityListTile.vue`: adds `break-inside: avoid` to the tile. Fixes an upstream Firefox bug: on wide windows Firefox split the tile's flex row inside the Stats tab's CSS columns, so the name dropped below the score button and the card grew taller.
+- `client/ui/creature/RestButton.vue`: also renders the Start Turn and End Turn buttons, which run a reset with the `turnStart` or `turnEnd` event.
+- `client/ui/creature/character/characterSheetTabs/StatsTab.vue` (again): the two turn buttons, after the rest buttons.
+- `client/ui/components/ResetSelector.vue` and `client/ui/properties/forms/AttributeForm.vue`: Turn start and Turn end in the Reset list.
+- `client/ui/properties/viewers/AttributeViewer.vue` and `ActionViewer.vue`: "Reset at the start/end of each turn" labels.
+- `client/ui/properties/forms/TriggerForm.vue`: hides the tag fields for turn events, like rest events.
 
 ### Docs
 
-- `private/docs/defaultDocs.json`: the Actions, Spells, Damage, Effects, Attributes, Saving throws, Spell lists and Computed fields pages describe the RA rules instead of 5e ones, and a new **Reverent Abyss** section (`/docs/reverent-abyss`) adds Rules in DiceCloud, Building a Class and Quick Reference pages for class authors. The app only copies this file into the `docs` collection when that collection is empty, so a server that already has docs needs them cleared, or edited in the app by a `docsWriter`, to show the changes.
+- `private/docs/defaultDocs.json`: the Actions, Spells, Damage, Effects, Attributes, Saving throws, Spell lists and Computed fields pages describe the RA rules instead of 5e ones, and a new **Reverent Abyss** section (`/docs/reverent-abyss`) adds Rules in DiceCloud, Building a Class and Quick Reference pages for class authors. The Actions, Spells, Attributes, Triggers and Tags pages and the Reverent Abyss pages cover the turn buttons and rest triggers. The app only copies this file into the `docs` collection when that collection is empty, so a server that already has docs needs them cleared, or edited in the app by a `docsWriter`, to show the changes.
 
 ### Tests
 
@@ -135,7 +145,7 @@ Create two attributes on the character:
 - **Changing Mortality:** use an **Adjustment** on `mortality`. A positive amount loses Mortality, a negative amount regains it. For example, a trigger on Hit Points being damaged can run an Adjustment of `floor(~damage / 5)`.
 - **Use Adjustments, not Effects, to lower Mortality.** The pull-down rule runs when an Adjustment or damage changes Mortality; an Effect that lowers it isn't caught.
 - **The pull-down doesn't fire damage triggers.** When losing Mortality pulls HP down, that HP change is written directly, so it can't set off "on damaged" triggers and loop with Mortality loss.
-- **Rests and death:** neither is built in. Write rests as rest triggers or actions, and judge death at the table or in a library.
+- **Rests and death:** neither is built in. Write rest effects as rest triggers, and judge death at the table or in a library.
 
 ## Behaviour notes
 
@@ -157,4 +167,5 @@ Create two attributes on the character:
 8. **New d20 call sites:** search upstream diffs for `diceSize: 20`. Any new hardcoded d20 roll should go through `rollCoreDice`.
 9. **Health bar checks:** any new upstream code that checks `attributeType === 'healthBar'` or `ignoreLowerLimit` should use `isHealthBarType()` or `allowsNegativeValue()` from `RA_HEALTH.ts`, so the Mortality type keeps working. The two hooks in `applyDamagePropTask.ts` are the main conflict risk.
 10. **Crit damage** in `applyDamageProperty.ts` (the `critKeepHighest` context and the `critFlat` block) and `roll.ts` (the `critKeepHighest` branch). If upstream changes how damage is rolled or logged, keep the RA crit steps.
-11. **Docs:** upstream edits to `defaultDocs.json` will conflict on the pages listed under Docs. Keep the RA wording for rolls, crits, advantage, ability modifiers and Mortality.
+11. **Rest and turn resets** in `applyResetTask.ts`: if upstream wires rest triggers back up itself, keep only one version, or they will fire twice. Any new upstream reset event needs adding to `triggerEventsByResetEvent`.
+12. **Docs:** upstream edits to `defaultDocs.json` will conflict on the pages listed under Docs. Keep the RA wording for rolls, crits, advantage, ability modifiers and Mortality.

@@ -187,6 +187,10 @@ import getPropertyTitle from '/imports/client/ui/properties/shared/getPropertyTi
           return 'Reset on a short rest';
         } else if (reset === 'longRest'){
           return 'Reset on a long rest';
+        } else if (reset === 'turnStart'){
+          return 'Reset at the start of each turn';
+        } else if (reset === 'turnEnd'){
+          return 'Reset at the end of each turn';
         }
         return undefined;
       },

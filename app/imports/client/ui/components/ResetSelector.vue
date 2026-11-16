@@ -37,6 +37,12 @@ export default {
         }, {
           text: 'Long rest',
           value: 'longRest',
+        }, {
+          text: 'Turn start',
+          value: 'turnStart',
+        }, {
+          text: 'Turn end',
+          value: 'turnEnd',
         }
       ];
       return [...defaultEvents, ...eventActions];
